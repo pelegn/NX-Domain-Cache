@@ -155,7 +155,7 @@ def create_probe_list():
         f.write(str(ids))
 
 
-def create_countery_histogram(double_free_dict, probe_dict):
+def create_country_histogram(double_free_dict, probe_dict):
     histogarm = defaultdict(lambda: [0])
     continentHistogram = defaultdict(int)
     dropCount = 0
@@ -181,13 +181,10 @@ def create_countery_histogram(double_free_dict, probe_dict):
     return histogarm, continentHistogram
 
 
-if __name__ == '__main__':
-    # create_probe_list()
-
+def load_probe_list():
     with open(r'C:\Users\pelegn\Documents\Private\School\Networking\final project\probes.txt', "r") as f:
         line = f.readlines()
     ids = ast.literal_eval(line[0])
-
     probe_dict = {}
     for id in ids:
         if not id[1]:
@@ -196,69 +193,55 @@ if __name__ == '__main__':
             probe_dict[id[0]] = transformations.ccn_to_cca3(transformations.cca2_to_ccn(id[1].lower()))
         except:
             pass
+    return ids, probe_dict
 
 
-    # start_time = datetime.utcnow() + timedelta(minutes=5)
-    # probe_list = []
-    # times = []
-    # batchSize = 1000
-    # for currMeasId in range(len(ids)/batchSize + 1):
-    #     times.append(start_time + timedelta(minutes=10*currMeasId))
-    #     probe_list.append([x[0] for x in ids[currMeasId * batchSize: (currMeasId + 1) * batchSize]])
-    # for currMeasId in range(len(ids)/batchSize + 1):
-    #     createMeasurment(currMeasId, probe_list[currMeasId], times[currMeasId])
+def create_ripe_measurments(ids):
+    start_time = datetime.utcnow() + timedelta(minutes=5)
+    probe_list = []
+    times = []
+    batchSize = 1000
+    for currMeasId in range(len(ids) / batchSize + 1):
+        times.append(start_time + timedelta(minutes=10 * currMeasId))
+        probe_list.append([x[0] for x in ids[currMeasId * batchSize: (currMeasId + 1) * batchSize]])
+    for currMeasId in range(len(ids) / batchSize + 1):
+        pass
+        # createMeasurment(currMeasId, probe_list[currMeasId], times[currMeasId])
 
-    # with open(r'C:\Users\pelegn\Documents\Private\School\Networking\final project\Measurment_Ids.txt', "r") as myfile:
-    #     content = myfile.readlines()
-    # for line in content:
-    #     if 'measurements' in line:
-    #         match = re.search('(\d+)', line)
-    #         measurment = match.group(1)
+
+def analyze_measurment_results():
     double_free_dict = defaultdict(int)
     for i in range(1, 4):
         l = analyze(r'C:\Users\pelegn\Documents\Private\School\Networking\final project\test{}_dump'.format(i))
         for item in l:
             double_free_dict[item] += 1
+    return double_free_dict
 
-    od = OrderedDict(sorted(double_free_dict.items(), key=lambda t: t[1], reverse=True))
-    sum=0
-    for item in od.items():
-        sum += item[1]
-    print "SUM:{}".format(sum)
-    print od
 
-    all_probe_country_histo, all_probe_continent_histo = create_countery_histogram(probe_dict, probe_dict)
-    country_histo, continent_histo = create_countery_histogram(double_free_dict, probe_dict)
-
+def show_continent_histogram(all_probe_continent_histo, no_cache_histo):
     continents = all_probe_continent_histo.keys()
     y_pos = np.arange(len(continents))
     allContinentCount = all_probe_continent_histo.values()
-    continetCount = continent_histo.values()
-
-    fig, ax = pyplot.subplots()
-
+    no_cache_count = no_cache_histo.values()
+    _, ax = pyplot.subplots()
     ax.bar(y_pos, allContinentCount, align='center', alpha=0.5, label='Total probes')
-    ax.bar(y_pos, continetCount, align='center', alpha=0.7, label='No Caching NX-Domain')
+    ax.bar(y_pos, no_cache_count, align='center', alpha=0.7, label='No Caching NX-Domain')
     pyplot.xticks(y_pos, continents, rotation='vertical')
     pyplot.ylabel('# of probes in continent')
     pyplot.title('Number of Probes that didn\'t have resolver NX-Domain Caching by Continents')
     # Create labels
     label = []
     for i in range(len(continents)):
-        label.append('{0:.2f} %'.format(float(continetCount[i]) / float(allContinentCount[i])))
-
-    for i, v in enumerate(continetCount):
+        label.append('{0:.2f} %'.format(100 * (float(no_cache_count[i]) / float(allContinentCount[i]))))
+    for i, v in enumerate(no_cache_count):
         ax.text(i - 0.1, v + 3, label[i], color='black', fontweight='bold')
     pyplot.legend()
     pyplot.show()
+    return
 
-    # pyplot.hist(all_probe_country_histo.values(),, alpha=0.5, label='x')
-    # pyplot.hist(country_histo.values(), all_probe_country_histo.keys(), alpha=0.5, label='y')
-    # pyplot.legend(loc='upper right')
-    # pyplot.show()
 
-    df = pd.DataFrame(list(country_histo.iteritems()), columns=['Code', 'Value'])
-
+def show_heat_map(no_cache_country_histo):
+    df = pd.DataFrame(list(no_cache_country_histo.iteritems()), columns=['Code', 'Value'])
     data = [dict(
         type='choropleth',
         locations=df['Code'],
@@ -278,7 +261,6 @@ if __name__ == '__main__':
             tickprefix='',
             title='# of non caching probes'),
     )]
-
     layout = dict(
         title='Heat Map \nNumber of probes that their resolver did not cache NX-Domains',
         geo=dict(
@@ -289,11 +271,36 @@ if __name__ == '__main__':
             )
         )
     )
-
     fig = dict(data=data, layout=layout)
     py.plot(fig, validate=False, filename='d3-world-map')
 
-    # measurments = [19848493]
-    # for measNum in measurments:
-    #     print_measurement("https://atlas.ripe.net//api/v2/measurements/{}/results/".format(measNum))
-    #     printMeas2(measNum)
+def print_country_no_cache_percentage(all_probe_country_histo, no_cache_country_histo):
+    print "No NX-Domain caching percentage by Country:"
+    percentList = []
+    for item in no_cache_country_histo.items():
+        percentList.append((item[1][0], all_probe_country_histo[item[0]][0], item[0]))
+
+    for item in sorted(percentList, reverse=True):
+        print '{0}: {1} / {2}'.format(transformations.cc_to_con(item[2]), item[0], item[1])
+
+
+if __name__ == '__main__':
+    bCreateProbeList = False
+    bCreateMeasurments = False
+
+    if bCreateProbeList:
+        create_probe_list()
+
+    ids, probe_dict = load_probe_list()
+    if bCreateMeasurments:
+        create_ripe_measurments(ids)
+
+    double_free_dict = analyze_measurment_results()
+
+    all_probe_country_histo, all_probe_continent_histo = create_country_histogram(probe_dict, probe_dict)
+    no_cache_country_histo, no_cache_continent_histo = create_country_histogram(double_free_dict, probe_dict)
+    print_country_no_cache_percentage(all_probe_country_histo, no_cache_country_histo)
+
+    show_continent_histogram(all_probe_continent_histo, no_cache_continent_histo)
+
+    show_heat_map(no_cache_country_histo)

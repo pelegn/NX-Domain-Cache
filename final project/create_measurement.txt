@@ -1,0 +1,27 @@
+def createMeasurment(measId, probe_list, start_time):
+    ATLAS_API_KEY = "d4974388-953d-48ea-8858-41a58f6202e8"
+    stop = start_time + timedelta(minutes=10)
+    desc = "measurment_{}".format(measId)
+    dnsreq = Dns(
+        ** {"af": 4,
+            "description": desc,
+            "query_type": "A",
+            "query_class": "IN",
+            "query_argument": "www.probe_$p.iotsecproject.tech",
+            "use_macros": "true",
+            "use_probe_resolver": "true",
+            "interval": 300,
+            "start": str(start_time),
+            "stop": str(stop)
+            })
+
+    source = AtlasSource(value=str(probe_list)[1:-1], type="probes",  requested=len(probe_list))
+
+    atlas_request = AtlasCreateRequest(
+        start_time=start_time,
+        stop_time=stop,
+        key=ATLAS_API_KEY,
+        measurements=[dnsreq],
+        sources=[source]
+    )
+    (is_success, response) = atlas_request.create()
